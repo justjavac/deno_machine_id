@@ -10,7 +10,7 @@ Unique machine (desktop) id (no admin privileges required).
 ## Usage
 
 ```ts
-import machineId from "https://deno.land/x/machine_id/mod.ts";
+import machineId from "https://deno.land/x/deno_machine_id/mod.ts";
 
 let id = await machineId();
 // c24b0fe51856497eebb6a2bfcd120247aac0d6334d670bb92e09a00ce8169365
