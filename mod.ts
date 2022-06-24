@@ -59,24 +59,29 @@ export default async function machineId(original = false): Promise<string> {
 }
 
 async function exec(cmd: string[]): Promise<string> {
-  const p = Deno.run({
-    cmd,
-    stdout: "piped",
-    stderr: "piped",
-  });
+  let p: Deno.Process;
 
-  const { code } = await p.status();
-  p.close();
+  try {
+    p = Deno.run({
+      cmd,
+      stdout: "piped",
+      stderr: "piped",
+    });
 
-  if (code === 0) {
-    const rawOutput = await p.output();
-    const outputString = new TextDecoder().decode(rawOutput);
-    return outputString;
-  } else {
-    const rawError = await p.stderrOutput();
-    const errorString = new TextDecoder().decode(rawError);
-    p.stderr.close();
-    throw new Error(errorString);
+    const { code } = await p.status();
+
+    if (code === 0) {
+      const rawOutput = await p.output();
+      const outputString = new TextDecoder().decode(rawOutput);
+      return outputString;
+    } else {
+      const rawError = await p.stderrOutput();
+      const errorString = new TextDecoder().decode(rawError);
+      throw new Error(errorString);
+    }
+  } finally {
+    p!.stderr?.close();
+    p!.close();
   }
 }
 
@@ -86,4 +91,8 @@ async function hash(guid: string): Promise<string> {
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+if (import.meta.main) {
+  console.log(await machineId());
 }
