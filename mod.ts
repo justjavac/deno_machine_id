@@ -1,48 +1,51 @@
-import { createHash } from "https://deno.land/std/hash/mod.ts";
-
 export default async function machineId(original = false): Promise<string> {
   let guid: string;
 
   switch (Deno.build.os) {
     case "linux": {
-      var output: string = "";
+      let output = "";
       try {
-        output = await exec(
-          ["cat", "/var/lib/dbus/machine-id", "/etc/machine-id"],
-        );
+        output = await exec([
+          "cat",
+          "/var/lib/dbus/machine-id",
+          "/etc/machine-id",
+        ]);
       } catch {
         output = await exec(["hostname"]);
       }
       guid = output
-        .substr(0, output.indexOf("\n"))
-        .replace(/\r+|\n+|\s+/ig, "")
+        .substring(0, output.indexOf("\n"))
+        .replace(/\r+|\n+|\s+/gi, "")
         .toLowerCase();
       break;
     }
 
     case "darwin": {
-      const output = await exec(
-        ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
-      );
-      guid = output.split("IOPlatformUUID")[1]
-        .split("\n")[0].replace(/\=|\s+|\"/ig, "")
+      const output = await exec([
+        "ioreg",
+        "-rd1",
+        "-c",
+        "IOPlatformExpertDevice",
+      ]);
+      guid = output
+        .split("IOPlatformUUID")[1]
+        .split("\n")[0]
+        .replace(/\=|\s+|\"/gi, "")
         .toLowerCase();
       break;
     }
 
     case "windows": {
-      const output = await exec(
-        [
-          "REG",
-          "QUERY",
-          "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography",
-          "/v",
-          "MachineGuid",
-        ],
-      );
+      const output = await exec([
+        "REG",
+        "QUERY",
+        "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography",
+        "/v",
+        "MachineGuid",
+      ]);
       guid = output
         .split("REG_SZ")[1]
-        .replace(/\r+|\n+|\s+/ig, "")
+        .replace(/\r+|\n+|\s+/gi, "")
         .toLowerCase();
       break;
     }
@@ -63,6 +66,7 @@ async function exec(cmd: string[]): Promise<string> {
   });
 
   const { code } = await p.status();
+  p.close();
 
   if (code === 0) {
     const rawOutput = await p.output();
@@ -71,12 +75,15 @@ async function exec(cmd: string[]): Promise<string> {
   } else {
     const rawError = await p.stderrOutput();
     const errorString = new TextDecoder().decode(rawError);
+    p.stderr.close();
     throw new Error(errorString);
   }
 }
 
-function hash(guid: string): string {
-  return createHash("sha256").update(guid).toString("hex");
+async function hash(guid: string): Promise<string> {
+  const data = new TextEncoder().encode(guid);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
-
-console.log(await machineId());
